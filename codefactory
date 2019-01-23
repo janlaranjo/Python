@@ -1,0 +1,157 @@
+import sys
+import re
+
+class CodeFactory:
+    _lineLength = 80
+
+    """This class is intended for adapting the code to meet personal coding format standards.
+
+    """
+
+    def __init__(self):
+
+        file = open(sys.argv[1], "r")
+        self._lines = file.readlines()
+
+    def replace_code(self):
+
+        self.remove_unnecessary_whitespaces()
+        self.adjust_curly_braces()
+        self.soft_wrap_lines()
+        self.insert_whitespaces()
+        self.write_into_file()
+
+    def remove_unnecessary_whitespaces(self):
+
+        i = 0
+        for i in range(0, len(self._lines)):
+            line_without_trailing_whitespaces = self._lines[i].lstrip(" ");
+            line_without_multiple_whitespaces = re.sub(
+                '\s+',
+                ' ',
+                line_without_trailing_whitespaces)
+            self._lines[i] = re.sub('\s+', ' ', line_without_multiple_whitespaces)
+
+    def adjust_curly_braces(self):
+        """
+
+        :return:
+        """
+
+    def soft_wrap_lines(self):
+        """
+        Each line is checked and if they exceed the line number they will be soft wrapped such that after ".", "," ,
+        ":", ";" the following characters will be written in the next line
+        """
+        for i in range(0, len(self._lines)):
+            current_line = self._lines[i]
+            # line length exceeds count
+            if len(current_line) > CodeFactory._lineLength:
+                # iterate backwards through line
+                for k, c in enumerate(reversed(current_line)):
+                    if c == '.':
+                        self._lines[i] = self.replace_too_long_character(current_line, k)
+                    elif c == ',':
+                        indexOfPoint = len(current_line) - k
+                        self._lines[i] = current_line[:indexOfPoint] + "\n\t" + current_line[indexOfPoint:]
+                    elif c == ':':
+                        indexOfPoint = len(current_line) - k
+                        self._lines[i] = current_line[:indexOfPoint] + "\n\t" + current_line[indexOfPoint:]
+                    elif c == ';':
+                        indexOfPoint = len(current_line) - k
+                        self._lines[i] = current_line[:indexOfPoint] + "\n\t" + current_line[indexOfPoint:]
+
+    def replace_line(self, currentLine):
+        # iterate backwards through line
+        line_length = len(currentLine)
+        for k, c in enumerate(reversed(currentLine)):
+            if self.is_delimiter(c) and line_length - c < CodeFactory._lineLength:
+                indexOfPoint = line_length - k
+
+                if len(currentLine[indexOfPoint:]) > CodeFactory._lineLength:
+                    return currentLine[:indexOfPoint]
+
+    def is_delimiter(self, c):
+        return c == '.' or \
+               c == ',' or \
+               c == ':' or \
+               c == ';'
+
+    def replace_too_long_character(self, current_line, k):
+
+        index_of_point = len(current_line) - k
+
+        return current_line[:index_of_point] + "\n\t" + current_line[index_of_point:]
+
+    def insert_whitespaces(self):
+        root = LevelNode(0, None)
+
+        for i, line in enumerate(self._lines):
+            root.add_line(line, i)
+
+        root.create_list(self._lines)
+        k = 0
+
+    def write_into_file(self):
+
+        result = ""
+        for i in range(0, len(self._lines)):
+            result += self._lines[i] + '\n'
+
+        # write result
+        file = open(sys.argv[1], "w")
+        file.write(result)
+
+
+class LevelNode:
+    """Part of a double linked list which contains lines of the corresponding level.
+
+    Each node has a parent except the root node and has a child if it is not the last level.
+
+    A node consist of lines that correspond to the level in the scope and the level which determines how many tabs will
+    be inserted.
+
+    It is also assumed that after "{" no code is written
+
+    """
+
+    def __init__(self, level, parent):
+        self._level = level
+        self._parent = parent
+        self._lines = []
+        self._child = None
+        self._is_next_level = False
+        self._is_scope_done = False
+
+    def add_line(self, line, line_nr):
+        if self._is_next_level:
+            self._child.add_line(line, line_nr)
+            return
+        if '{' in line and '}' not in line:
+            self._is_next_level = True
+            if self._child is None:
+                self._child = LevelNode(self._level + 1, self);
+        elif '{' not in line and '}' in line:
+            self._parent._is_next_level = False
+            self._parent.append_line(line, line_nr)
+            return
+
+        self.append_line(line, line_nr)
+
+    def append_line(self, line, line_nr):
+        self._lines.append((line, line_nr))
+
+    def create_list(self, lines):
+        for current_line in self._lines:
+            lines[current_line[1]] = ''
+            for x in range(0, self._level):
+                lines[current_line[1]] += '\t'
+            lines[current_line[1]] += current_line[0]
+
+        if self._child is not None:
+            self._child.create_list(lines)
+
+
+# execute replace process
+optimizer = CodeFactory()
+optimizer.replace_code()
